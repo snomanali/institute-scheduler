@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ER Diagram — Institute Schedule Manager</title>
+<style>
+  body { font-family: 'Segoe UI', sans-serif; background: #0F1923; color: #E0E8F0; margin: 0; padding: 32px; }
+  h1 { font-size: 1.4rem; color: #5B9EFF; margin-bottom: 4px; }
+  p { color: #6B7E8F; font-size: 0.85rem; margin-bottom: 32px; }
+  .canvas { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
+  .entity {
+    background: #1A2633;
+    border: 1px solid #2E3E4D;
+    border-radius: 6px;
+    min-width: 220px;
+    overflow: hidden;
+    flex: 0 0 auto;
+  }
+  .entity-header {
+    padding: 8px 14px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .entity-header.core    { background: #1455C0; color: white; }
+  .entity-header.lookup  { background: #0A7A55; color: white; }
+  .entity-header.junction{ background: #C47A00; color: white; }
+  .entity-header.system  { background: #3A2E50; color: #C0B0E0; }
+  .field { display: flex; justify-content: space-between; padding: 5px 14px; border-bottom: 1px solid #1E2E3D; font-size: 0.78rem; gap: 16px; }
+  .field:last-child { border-bottom: none; }
+  .field-name { color: #A0C0E0; }
+  .field-name.pk { color: #FFD700; font-weight: 700; }
+  .field-name.fk { color: #FF9944; }
+  .field-type { color: #4A6A7A; font-size: 0.72rem; }
+  .legend { display: flex; gap: 20px; margin-bottom: 24px; flex-wrap: wrap; }
+  .leg { display: flex; align-items: center; gap: 8px; font-size: 0.78rem; color: #6B7E8F; }
+  .leg-dot { width: 12px; height: 12px; border-radius: 2px; }
+  .section-label { font-size: 0.65rem; letter-spacing: 0.16em; text-transform: uppercase; color: #3A6A8A; margin: 28px 0 12px; font-weight: 700; }
+</style>
+</head>
+<body>
+<h1>Entity-Relationship Diagram</h1>
+<p>Institute Schedule Manager · PostgreSQL · 16 Tables</p>
+
+<div class="legend">
+  <div class="leg"><div class="leg-dot" style="background:#1455C0"></div>Core / Operational</div>
+  <div class="leg"><div class="leg-dot" style="background:#0A7A55"></div>Lookup / Reference</div>
+  <div class="leg"><div class="leg-dot" style="background:#C47A00"></div>Junction / Many-to-Many</div>
+  <div class="leg"><div class="leg-dot" style="background:#3A2E50"></div>System / Logging</div>
+  <div class="leg"><div class="leg-dot" style="background:#FFD700"></div>PK</div>
+  <div class="leg"><div class="leg-dot" style="background:#FF9944"></div>FK</div>
+</div>
+
+<div class="section-label">Identity &amp; Auth</div>
+<div class="canvas">
+  <div class="entity">
+    <div class="entity-header core">users</div>
+    <div class="field"><span class="field-name pk">id</span><span class="field-type">UUID PK</span></div>
+    <div class="field"><span class="field-name">email</span><span class="field-type">VARCHAR UNIQUE</span></div>
+    <div class="field"><span class="field-name">password_hash</span><span class="field-type">TEXT</span></div>
+    <div class="field"><span class="field-name">role</span><span class="field-type">ENUM</span></div>
+    <div class="field"><span class="field-name">full_name</span><span class="field-type">VARCHAR</span></div>
+    <div class="field"><span class="field-name">phone</span><span class="field-type">VARCHAR</span></div>
+    <div class="field"><span class="field-name">is_active</span><span class="field-type">BOOLEAN</span></div>
+    <div class="field"><span class="field-name">last_login_at</span><span class="field-type">TIMESTAMPTZ</span></div>
+  </div>
+
+  <div class="entity">
+    <div class="entity-header core">teachers</div>
+    <div class="field"><span class="field-name pk">id</span><span class="field-type">UUID PK</span></div>
+    <div class="field"><span class="field-name fk">user_id</span><span class="field-type">FK → users</span></div>
+    <div class="field"><span class="field-name">employee_code</span><span class="field-type">VARCHAR UNIQUE</span></div>
+    <div class="field"><span class="field-name">max_hours_per_day</span><span class="field-type">NUMERIC</span></div>
+    <div class="field"><span class="field-name">weekly_off_day</span><span class="field-type">ENUM day_of_week</span></div>
+    <div class="field"><span class="field-name">buffer_minutes</span><span class="field-type">INTEGER</span></div>
+    <div class="field"><span class="field-name">joining_date</span><span class="field-type">DATE</span></div>
+  </div>
+
+  <div class="entity">
+    <div class="entity-header core">students</div>
+    <div class="field"><span class="field-name pk">id</span><span class="field-type">UUID PK</span></div>
+    <div class="field"><span class="field-name fk">user_id</span><span class="field-type">FK → users</span></div>
+    <div class="field"><span class="field-name">student_code</span><span class="field-type">VARCHAR UNIQUE</span></div>
+    <div class="field"><span class="field-name">date_of_birth</span><span class="field-type">DATE</span></div>
+    <div class="field"><span class="field-name">guardian_name</span><span class="field-type">VARCHAR</span></div>
+    <div class="field"><span class="field-name">guardian_phone</span><span class="field-type">VARCHAR</span></div>
+    <div class="field"><span class="field-name">is_active</span><span class="field-type">BOOLEAN</span></div>
+  </div>
+</div>
+
+<div class="section-label">Subjects, Courses &amp; Groups</div>
+<div class="canvas">
+  <div class="entity">
+    <div class="entity-header lookup">subjects</div>
+    <div class="field"><span class="field-name pk">id</span><span class="field-type">UUID PK</span></div>
+    <div class="field"><span class="field-name">name</span><span class="field-type">VARCHAR UNIQUE</span></div>
+    <div class="field"><span class="field-name">code</span><span class="field-type">VARCHAR UNIQUE</span></div>
+    <div class="field"><span class="field-name">is_active</span><span class="field-type">BOOLEAN</span></div>
+  </div>
+
+  <div class="entity">
+    <div class="entity-header junction">teacher_expertise</div>
+    <div class="field"><span class="field-name pk">id</span><span class="field-type">UUID PK</span></div>
+    <div class="field"><span class="field-name fk">teacher_id</span><span class="field-type">FK → teachers</span></div>
+    <div class="field"><span class="field-name fk">subject_id</span><span class="field-type">FK → subjects</span></div>
+    <div class="field"><span class="field-name">proficiency</span><span class="field-type">primary|secondary</span></div>
+  </div>
+
+  <div class="entity">
+    <div class="entity-header lookup">courses</div>
+    <div class="field"><span class="field-name pk">id</span><span class="field-type">UUID PK</span></div>
+    <div class="field"><span class="field-name">name</span><span class="field-type">VARCHAR</span></div>
+    <div class="field"><span class="field-name">code</span><span class="field-type">VARCHAR UNIQUE</span></div>
+    <div class="field"><span class="field-name">total_sessions</span><span class="field-type">INTEGER</span></div>
+    <div class="field"><span class="field-name">duration_weeks</span><span class="field-type">INTEGER</span></div>
+  </div>
+
+  <div class="entity">
+    <div class="entity-header junction">course_subjects</div>
+    <div class="field"><span class="field-name fk">course_id</span><span class="field-type">FK → courses</span></div>
+    <div class="field"><span class="field-name fk">subject_id</span><span class="field-type">FK → subjects</span></div>
+  </div>
+
+  <div class="entity">
+    <div class="entity-header lookup">student_groups</div>
+    <div class="field"><span class="field-name pk">id</span><span class="field-type">UUID PK</span></div>
+    <div class="field"><span class="field-name">name</span><span class="field-type">VARCHAR</span></div>
+    <div class="field"><span class="field-name fk">course_id</span><span class="field-type">FK → courses</span></div>
+  </div>
+
+  <div class="entity">
+    <div class="entity-header junction">student_group_members</div>
+    <div class="field"><span class="field-name fk">group_id</span><span class="field-type">FK → student_groups</span></div>
+    <div class="field"><span class="field-name fk">student_id</span><span class="field-type">FK → students</span></div>
+  </div>
+
+  <div class="entity">
+    <div class="entity-header junction">course_enrollments</div>
+    <div class="field"><span class="field-name fk">student_id</span><span class="field-type">FK → students</span></div>
+    <div class="field"><span class="field-name fk">course_id</span><span class="field-type">FK → courses</span></div>
+    <div class="field"><span class="field-name">enrolled_at</span><span class="field-type">DATE</span></div>
+    <div class="field"><span class="field-name">is_active</span><span class="field-type">BOOLEAN</span></div>
+  </div>
+</div>
+
+<div class="section-label">Scheduling Core</div>
+<div class="canvas">
+  <div class="entity">
+    <div class="entity-header core">classes</div>
+    <div class="field"><span class="field-name pk">id</span><span class="field-type">UUID PK</span></div>
+    <div class="field"><span class="field-name fk">course_id</span><span class="field-type">FK → courses</span></div>
+    <div class="field"><span class="field-name fk">subject_id</span><span class="field-type">FK → subjects</span></div>
+    <div class="field"><span class="field-name fk">teacher_id</span><span class="field-type">FK → teachers</span></div>
+    <div class="field"><span class="field-name">scheduled_date</span><span class="field-type">DATE</span></div>
+    <div class="field"><span class="field-name">start_time</span><span class="field-type">TIME</span></div>
+    <div class="field"><span class="field-name">end_time</span><span class="field-type">TIME</span></div>
+    <div class="field"><span class="field-name">duration_minutes</span><span class="field-type">INTEGER</span></div>
+    <div class="field"><span class="field-name">platform</span><span class="field-type">ENUM</span></div>
+    <div class="field"><span class="field-name">meeting_link</span><span class="field-type">TEXT</span></div>
+    <div class="field"><span class="field-name">status</span><span class="field-type">ENUM class_status</span></div>
+    <div class="field"><span class="field-name">is_recurring</span><span class="field-type">BOOLEAN</span></div>
+    <div class="field"><span class="field-name fk">recurrence_rule_id</span><span class="field-type">FK → recurrence_rules</span></div>
+    <div class="field"><span class="field-name fk">rescheduled_from_id</span><span class="field-type">FK → classes (self)</span></div>
+    <div class="field"><span class="field-name fk">created_by</span><span class="field-type">FK → users</span></div>
+  </div>
+
+  <div class="entity">
+    <div class="entity-header core">recurrence_rules</div>
+    <div class="field"><span class="field-name pk">id</span><span class="field-type">UUID PK</span></div>
+    <div class="field"><span class="field-name">frequency</span><span class="field-type">daily|weekly|monthly</span></div>
+    <div class="field"><span class="field-name">days_of_week</span><span class="field-type">day_of_week[]</span></div>
+    <div class="field"><span class="field-name">start_date</span><span class="field-type">DATE</span></div>
+    <div class="field"><span class="field-name">end_date</span><span class="field-type">DATE</span></div>
+    <div class="field"><span class="field-name">total_sessions</span><span class="field-type">INTEGER</span></div>
+  </div>
+
+  <div class="entity">
+    <div class="entity-header junction">class_students</div>
+    <div class="field"><span class="field-name fk">class_id</span><span class="field-type">FK → classes</span></div>
+    <div class="field"><span class="field-name fk">student_id</span><span class="field-type">FK → students</span></div>
+    <div class="field"><span class="field-name fk">group_id</span><span class="field-type">FK → student_groups</span></div>
+    <div class="field"><span class="field-name">added_at</span><span class="field-type">TIMESTAMPTZ</span></div>
+  </div>
+</div>
+
+<div class="section-label">Attendance &amp; Leave</div>
+<div class="canvas">
+  <div class="entity">
+    <div class="entity-header core">attendance</div>
+    <div class="field"><span class="field-name pk">id</span><span class="field-type">UUID PK</span></div>
+    <div class="field"><span class="field-name fk">class_id</span><span class="field-type">FK → classes</span></div>
+    <div class="field"><span class="field-name fk">student_id</span><span class="field-type">FK → students</span></div>
+    <div class="field"><span class="field-name">status</span><span class="field-type">ENUM attendance_status</span></div>
+    <div class="field"><span class="field-name">late_minutes</span><span class="field-type">INTEGER</span></div>
+    <div class="field"><span class="field-name">remarks</span><span class="field-type">TEXT</span></div>
+    <div class="field"><span class="field-name fk">marked_by</span><span class="field-type">FK → users</span></div>
+    <div class="field"><span class="field-name">marked_at</span><span class="field-type">TIMESTAMPTZ</span></div>
+  </div>
+
+  <div class="entity">
+    <div class="entity-header core">leave_requests</div>
+    <div class="field"><span class="field-name pk">id</span><span class="field-type">UUID PK</span></div>
+    <div class="field"><span class="field-name fk">teacher_id</span><span class="field-type">FK → teachers</span></div>
+    <div class="field"><span class="field-name">leave_type</span><span class="field-type">ENUM leave_type</span></div>
+    <div class="field"><span class="field-name">start_date</span><span class="field-type">DATE</span></div>
+    <div class="field"><span class="field-name">end_date</span><span class="field-type">DATE</span></div>
+    <div class="field"><span class="field-name">reason</span><span class="field-type">TEXT</span></div>
+    <div class="field"><span class="field-name">attachment_url</span><span class="field-type">TEXT</span></div>
+    <div class="field"><span class="field-name">status</span><span class="field-type">ENUM leave_status</span></div>
+    <div class="field"><span class="field-name fk">reviewed_by</span><span class="field-type">FK → users</span></div>
+  </div>
+</div>
+
+<div class="section-label">System</div>
+<div class="canvas">
+  <div class="entity">
+    <div class="entity-header system">notifications</div>
+    <div class="field"><span class="field-name pk">id</span><span class="field-type">UUID PK</span></div>
+    <div class="field"><span class="field-name fk">user_id</span><span class="field-type">FK → users</span></div>
+    <div class="field"><span class="field-name">title</span><span class="field-type">VARCHAR</span></div>
+    <div class="field"><span class="field-name">channel</span><span class="field-type">ENUM</span></div>
+    <div class="field"><span class="field-name">status</span><span class="field-type">pending|sent|failed</span></div>
+    <div class="field"><span class="field-name">metadata</span><span class="field-type">JSONB</span></div>
+  </div>
+
+  <div class="entity">
+    <div class="entity-header system">audit_log</div>
+    <div class="field"><span class="field-name pk">id</span><span class="field-type">UUID PK</span></div>
+    <div class="field"><span class="field-name fk">user_id</span><span class="field-type">FK → users</span></div>
+    <div class="field"><span class="field-name">action</span><span class="field-type">VARCHAR</span></div>
+    <div class="field"><span class="field-name">entity_type</span><span class="field-type">VARCHAR</span></div>
+    <div class="field"><span class="field-name">entity_id</span><span class="field-type">UUID</span></div>
+    <div class="field"><span class="field-name">old_data</span><span class="field-type">JSONB</span></div>
+    <div class="field"><span class="field-name">new_data</span><span class="field-type">JSONB</span></div>
+  </div>
+
+  <div class="entity">
+    <div class="entity-header system">system_settings</div>
+    <div class="field"><span class="field-name pk">key</span><span class="field-type">VARCHAR PK</span></div>
+    <div class="field"><span class="field-name">value</span><span class="field-type">TEXT</span></div>
+    <div class="field"><span class="field-name">description</span><span class="field-type">TEXT</span></div>
+    <div class="field"><span class="field-name fk">updated_by</span><span class="field-type">FK → users</span></div>
+  </div>
+</div>
+
+</body>
+</html>
