@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>API Reference — Institute Schedule Manager</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #0F1923; color: #D0DCE8; line-height: 1.6; }
+  .layout { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
+
+  /* Sidebar */
+  nav { background: #0A1018; border-right: 1px solid #1E2E3D; padding: 24px 0; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+  nav h2 { font-size: 0.7rem; letter-spacing: 0.16em; text-transform: uppercase; color: #3A6A8A; padding: 0 20px 10px; }
+  nav a { display: block; padding: 6px 20px; font-size: 0.82rem; color: #6B8EA8; text-decoration: none; border-left: 2px solid transparent; transition: all 0.15s; }
+  nav a:hover { color: #5B9EFF; border-left-color: #5B9EFF; background: #121E2A; }
+  nav .section { padding: 16px 20px 4px; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.14em; color: #2A4A5A; margin-top: 8px; }
+
+  /* Main */
+  main { padding: 40px 48px; max-width: 900px; }
+  h1 { font-size: 1.8rem; color: #5B9EFF; margin-bottom: 6px; }
+  .subtitle { color: #4A6A7A; font-size: 0.9rem; margin-bottom: 40px; }
+  h2 { font-size: 1.1rem; color: #A0C8E8; margin: 40px 0 16px; padding-bottom: 8px; border-bottom: 1px solid #1E2E3D; }
+
+  /* Endpoint */
+  .endpoint { background: #131F2B; border: 1px solid #1E2E3D; border-radius: 6px; margin: 12px 0; overflow: hidden; }
+  .endpoint-header { display: flex; align-items: center; gap: 12px; padding: 12px 16px; cursor: pointer; }
+  .method { font-size: 0.7rem; font-weight: 700; padding: 3px 8px; border-radius: 3px; min-width: 52px; text-align: center; font-family: monospace; }
+  .GET    { background: #0A3A2A; color: #3DBA7E; }
+  .POST   { background: #1A2A50; color: #5B9EFF; }
+  .PUT    { background: #3A2A0A; color: #F0A040; }
+  .DELETE { background: #3A1010; color: #FF6060; }
+  .path { font-family: monospace; font-size: 0.85rem; color: #C0D8F0; }
+  .desc { font-size: 0.78rem; color: #4A6A7A; margin-left: auto; }
+  .auth-badge { font-size: 0.65rem; padding: 2px 6px; border-radius: 10px; background: #1E2E3D; color: #6B9ABA; }
+  .auth-badge.admin { background: #1A1550; color: #7090FF; }
+  .auth-badge.teacher { background: #0A3020; color: #50C090; }
+
+  /* Body detail */
+  .endpoint-body { padding: 0 16px 16px; display: none; border-top: 1px solid #1A2A3A; padding-top: 14px; }
+  .endpoint-body.open { display: block; }
+  .params-title { font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; color: #3A6A7A; margin: 10px 0 6px; }
+  .param-row { display: flex; gap: 12px; padding: 5px 0; border-bottom: 1px solid #131F2B; font-size: 0.78rem; }
+  .param-name { color: #88BBDD; font-family: monospace; min-width: 160px; }
+  .param-type { color: #4A6A5A; min-width: 80px; }
+  .param-req  { color: #FF8060; font-size: 0.7rem; }
+  .param-desc { color: #5A7A8A; }
+  pre { background: #0A1018; padding: 12px 14px; border-radius: 4px; font-size: 0.76rem; color: #8ABCDC; overflow-x: auto; margin-top: 8px; line-height: 1.5; }
+</style>
+<script>
+  function toggle(el) {
+    const body = el.nextElementSibling;
+    body.classList.toggle('open');
+  }
+</script>
+</head>
+<body>
+<div class="layout">
+<nav>
+  <div style="padding:0 20px 20px"><span style="color:#5B9EFF;font-weight:700;font-size:0.9rem">ISM API</span><br><span style="color:#2A4A5A;font-size:0.72rem">v1.0 · Node.js + PostgreSQL</span></div>
+  <div class="section">Base URL</div>
+  <a href="#">/api/v1</a>
+  <div class="section">Auth</div>
+  <a href="#auth">Login / Logout</a>
+  <a href="#auth">Token Refresh</a>
+  <a href="#auth">Profile</a>
+  <div class="section">Admin</div>
+  <a href="#teachers">Teachers</a>
+  <a href="#students">Students</a>
+  <a href="#courses">Courses</a>
+  <a href="#classes">Classes</a>
+  <a href="#leave-admin">Leave (Admin)</a>
+  <a href="#dashboard">Dashboard</a>
+  <a href="#reports">Reports</a>
+  <div class="section">Teacher</div>
+  <a href="#teacher-schedule">My Schedule</a>
+  <a href="#attendance">Attendance</a>
+  <a href="#leave-teacher">Leave Requests</a>
+</nav>
+
+<main>
+  <h1>API Reference</h1>
+  <div class="subtitle">Institute Schedule Manager · REST API · Base URL: <code style="color:#5B9EFF">/api/v1</code></div>
+
+  <!-- AUTH -->
+  <h2 id="auth">🔐 Authentication</h2>
+
+  <div class="endpoint">
+    <div class="endpoint-header" onclick="toggle(this)">
+      <span class="method POST">POST</span>
+      <span class="path">/auth/login</span>
+      <span class="desc">Authenticate and get JWT tokens</span>
+    </div>
+    <div class="endpoint-body">
+      <div class="params-title">Request Body</div>
+      <div class="param-row"><span class="param-name">email</span><span class="param-type">string</span><span class="param-req">required</span><span class="param-desc">User email address</span></div>
+      <div class="param-row"><span class="param-name">password</span><span class="param-type">string</span><span class="param-req">required</span><span class="param-desc">Account password</span></div>
+      <div class="params-title">Response</div>
+      <pre>{ "success": true, "data": {
+  "user": { "id", "email", "role", "fullName", "profileId" },
+  "accessToken":  "eyJ...",   // expires in 8h
+  "refreshToken": "eyJ..."    // expires in 7d
+} }</pre>
+    </div>
+  </div>
+
+  <div class="endpoint">
+    <div class="endpoint-header" onclick="toggle(this)">
+      <span class="method POST">POST</span>
+      <span class="path">/auth/refresh</span>
+      <span class="desc">Get new access token using refresh token</span>
+    </div>
+    <div class="endpoint-body">
+      <div class="params-title">Request Body</div>
+      <div class="param-row"><span class="param-name">refreshToken</span><span class="param-type">string</span><span class="param-req">required</span><span class="param-desc">Refresh token from login</span></div>
+      <div class="params-title">Response</div>
+      <pre>{ "success": true, "data": { "accessToken": "eyJ..." } }</pre>
+    </div>
+  </div>
+
+  <div class="endpoint">
+    <div class="endpoint-header" onclick="toggle(this)">
+      <span class="method GET">GET</span>
+      <span class="path">/auth/me</span>
+      <span class="auth-badge">🔒 any role</span>
+      <span class="desc">Get current user profile</span>
+    </div>
+    <div class="endpoint-body">
+      <pre>{ "success": true, "data": { "id", "email", "role", "fullName", "phone", "lastLoginAt" } }</pre>
+    </div>
+  </div>
+
+  <div class="endpoint">
+    <div class="endpoint-header" onclick="toggle(this)">
+      <span class="method PUT">PUT</span>
+      <span class="path">/auth/change-password</span>
+      <span class="auth-badge">🔒 any role</span>
+    </div>
+    <div class="endpoint-body">
+      <div class="params-title">Request Body</div>
+      <div class="param-row"><span class="param-name">currentPassword</span><span class="param-type">string</span><span class="param-req">required</span></div>
+      <div class="param-row"><span class="param-name">newPassword</span><span class="param-type">string</span><span class="param-req">required</span><span class="param-desc">Min 8 chars, must contain a number</span></div>
+    </div>
+  </div>
+
+  <div class="endpoint">
+    <div class="endpoint-header" onclick="toggle(this)">
+      <span class="method POST">POST</span>
+      <span class="path">/auth/users</span>
+      <span class="auth-badge admin">admin</span>
+      <span class="desc">Create teacher or student account</span>
+    </div>
+    <div class="endpoint-body">
+      <div class="params-title">Request Body</div>
+      <div class="param-row"><span class="param-name">email</span><span class="param-type">string</span><span class="param-req">required</span></div>
+      <div class="param-row"><span class="param-name">password</span><span class="param-type">string</span><span class="param-req">required</span></div>
+      <div class="param-row"><span class="param-name">role</span><span class="param-type">enum</span><span class="param-req">required</span><span class="param-desc">admin | teacher | student</span></div>
+      <div class="param-row"><span class="param-name">fullName</span><span class="param-type">string</span><span class="param-req">required</span></div>
+      <div class="param-row"><span class="param-name">phone</span><span class="param-type">string</span><span class="param-req">optional</span></div>
+    </div>
+  </div>
+
+  <!-- TEACHERS -->
+  <h2 id="teachers">👩‍🏫 Teachers <span style="font-size:0.7rem;color:#3A6A7A">(admin)</span></h2>
+
+  <div class="endpoint"><div class="endpoint-header" onclick="toggle(this)"><span class="method GET">GET</span><span class="path">/teachers</span><span class="auth-badge admin">admin</span><span class="desc">List all teachers with workload stats</span></div><div class="endpoint-body"><div class="params-title">Query Params</div><div class="param-row"><span class="param-name">subject_id</span><span class="param-type">uuid</span><span class="param-req">optional</span><span class="param-desc">Filter by subject expertise</span></div><div class="param-row"><span class="param-name">is_active</span><span class="param-type">boolean</span><span class="param-req">optional</span></div></div></div>
+
+  <div class="endpoint"><div class="endpoint-header" onclick="toggle(this)"><span class="method GET">GET</span><span class="path">/teachers/:id</span><span class="auth-badge admin">admin</span><span class="desc">Get teacher profile + expertise + schedule</span></div><div class="endpoint-body"><pre>Returns: teacher profile, subjects, weekly schedule summary, leave balance</pre></div></div>
+
+  <div class="endpoint"><div class="endpoint-header" onclick="toggle(this)"><span class="method PUT">PUT</span><span class="path">/teachers/:id</span><span class="auth-badge admin">admin</span><span class="desc">Update teacher profile and settings</span></div><div class="endpoint-body"><div class="params-title">Body Fields</div><div class="param-row"><span class="param-name">maxHoursPerDay</span><span class="param-type">number</span><span class="param-req">optional</span><span class="param-desc">Max 8</span></div><div class="param-row"><span class="param-name">weeklyOffDay</span><span class="param-type">enum</span><span class="param-req">optional</span><span class="param-desc">monday–sunday</span></div><div class="param-row"><span class="param-name">bufferMinutes</span><span class="param-type">number</span><span class="param-req">optional</span></div></div></div>
+
+  <div class="endpoint"><div class="endpoint-header" onclick="toggle(this)"><span class="method POST">POST</span><span class="path">/teachers/:id/expertise</span><span class="auth-badge admin">admin</span><span class="desc">Assign subject expertise to teacher</span></div><div class="endpoint-body"><div class="param-row"><span class="param-name">subjectId</span><span class="param-type">uuid</span><span class="param-req">required</span></div><div class="param-row"><span class="param-name">proficiency</span><span class="param-type">enum</span><span class="param-req">required</span><span class="param-desc">primary | secondary</span></div></div></div>
+
+  <div class="endpoint"><div class="endpoint-header" onclick="toggle(this)"><span class="method GET">GET</span><span class="path">/teachers/:id/workload</span><span class="auth-badge admin">admin</span><span class="desc">Get hours taught and capacity for date range</span></div><div class="endpoint-body"><div class="param-row"><span class="param-name">from</span><span class="param-type">date</span><span class="param-req">required</span></div><div class="param-row"><span class="param-name">to</span><span class="param-type">date</span><span class="param-req">required</span></div></div></div>
+
+  <!-- CLASSES -->
+  <h2 id="classes">📅 Classes <span style="font-size:0.7rem;color:#3A6A7A">(scheduling core)</span></h2>
+
+  <div class="endpoint"><div class="endpoint-header" onclick="toggle(this)"><span class="method GET">GET</span><span class="path">/classes</span><span class="auth-badge admin">admin</span><span class="desc">List classes with filters</span></div><div class="endpoint-body"><div class="params-title">Query Params</div><div class="param-row"><span class="param-name">date</span><span class="param-type">date</span><span class="param-req">optional</span><span class="param-desc">YYYY-MM-DD for daily view</span></div><div class="param-row"><span class="param-name">from / to</span><span class="param-type">date</span><span class="param-req">optional</span><span class="param-desc">Date range</span></div><div class="param-row"><span class="param-name">teacher_id</span><span class="param-type">uuid</span><span class="param-req">optional</span></div><div class="param-row"><span class="param-name">course_id</span><span class="param-type">uuid</span><span class="param-req">optional</span></div><div class="param-row"><span class="param-name">status</span><span class="param-type">enum</span><span class="param-req">optional</span><span class="param-desc">scheduled|ongoing|completed|cancelled</span></div></div></div>
+
+  <div class="endpoint">
+    <div class="endpoint-header" onclick="toggle(this)">
+      <span class="method POST">POST</span>
+      <span class="path">/classes</span>
+      <span class="auth-badge admin">admin</span>
+      <span class="desc">Create class (single or recurring) — runs conflict check</span>
+    </div>
+    <div class="endpoint-body">
+      <div class="params-title">Request Body</div>
+      <div class="param-row"><span class="param-name">teacherId</span><span class="param-type">uuid</span><span class="param-req">required</span></div>
+      <div class="param-row"><span class="param-name">subjectId</span><span class="param-type">uuid</span><span class="param-req">required</span></div>
+      <div class="param-row"><span class="param-name">courseId</span><span class="param-type">uuid</span><span class="param-req">optional</span></div>
+      <div class="param-row"><span class="param-name">scheduledDate</span><span class="param-type">date</span><span class="param-req">required</span></div>
+      <div class="param-row"><span class="param-name">startTime</span><span class="param-type">time</span><span class="param-req">required</span><span class="param-desc">HH:MM format</span></div>
+      <div class="param-row"><span class="param-name">durationMinutes</span><span class="param-type">number</span><span class="param-req">required</span><span class="param-desc">40 | 60 | custom</span></div>
+      <div class="param-row"><span class="param-name">platform</span><span class="param-type">enum</span><span class="param-req">required</span><span class="param-desc">skype|google_meet|microsoft_teams|moodle|custom</span></div>
+      <div class="param-row"><span class="param-name">meetingLink</span><span class="param-type">string</span><span class="param-req">optional</span></div>
+      <div class="param-row"><span class="param-name">studentIds</span><span class="param-type">uuid[]</span><span class="param-req">optional</span><span class="param-desc">Individual students</span></div>
+      <div class="param-row"><span class="param-name">groupId</span><span class="param-type">uuid</span><span class="param-req">optional</span><span class="param-desc">Assign whole group</span></div>
+      <div class="param-row"><span class="param-name">recurrence</span><span class="param-type">object</span><span class="param-req">optional</span><span class="param-desc">See recurrence object below</span></div>
+      <div class="params-title">Recurrence Object (optional)</div>
+      <pre>{
+  "frequency":   "weekly",           // daily | weekly | monthly
+  "daysOfWeek":  ["monday","wednesday","friday"],
+  "endDate":     "2025-06-30",       // or use totalSessions
+  "totalSessions": 24
+}</pre>
+      <div class="params-title">Conflict Response (409)</div>
+      <pre>{ "success": false, "message": "Scheduling conflict detected.",
+  "conflicts": [
+    { "type": "teacher_overlap", "detail": "Teacher has a class 10:00–11:00" },
+    { "type": "daily_limit",     "detail": "Would exceed 8h daily limit (7.5h scheduled)" }
+  ]
+}</pre>
+    </div>
+  </div>
+
+  <div class="endpoint"><div class="endpoint-header" onclick="toggle(this)"><span class="method PUT">PUT</span><span class="path">/classes/:id</span><span class="auth-badge admin">admin</span><span class="desc">Reschedule or update a class — re-runs conflict check</span></div><div class="endpoint-body"><pre>Same fields as POST. Original class is preserved with status "rescheduled".</pre></div></div>
+
+  <div class="endpoint"><div class="endpoint-header" onclick="toggle(this)"><span class="method DELETE">DELETE</span><span class="path">/classes/:id</span><span class="auth-badge admin">admin</span><span class="desc">Cancel a class</span></div><div class="endpoint-body"><div class="param-row"><span class="param-name">reason</span><span class="param-type">string</span><span class="param-req">required</span></div></div></div>
+
+  <!-- TEACHER SCHEDULE -->
+  <h2 id="teacher-schedule">🗓 Teacher: My Schedule</h2>
+
+  <div class="endpoint"><div class="endpoint-header" onclick="toggle(this)"><span class="method GET">GET</span><span class="path">/classes/my/today</span><span class="auth-badge teacher">teacher</span><span class="desc">Today's classes for logged-in teacher</span></div><div class="endpoint-body"><pre>Returns ordered list of today's classes with meeting links and student list.</pre></div></div>
+
+  <div class="endpoint"><div class="endpoint-header" onclick="toggle(this)"><span class="method GET">GET</span><span class="path">/classes/my/week</span><span class="auth-badge teacher">teacher</span><span class="desc">Current week schedule</span></div><div class="endpoint-body"><div class="param-row"><span class="param-name">week</span><span class="param-type">date</span><span class="param-req">optional</span><span class="param-desc">Any date in desired week (default: current)</span></div></div></div>
+
+  <div class="endpoint"><div class="endpoint-header" onclick="toggle(this)"><span class="method GET">GET</span><span class="path">/classes/:id/students</span><span class="auth-badge teacher">teacher</span><span class="desc">Get student list for a class</span></div><div class="endpoint-body"><pre>Returns students enrolled in the class with attendance history.</pre></div></div>
+
+  <!-- ATTENDANCE -->
+  <h2 id="attendance">✅ Attendance</h2>
+
+  <div class="endpoint">
+    <div class="endpoint-header" onclick="toggle(this)">
+      <span class="method POST">POST</span>
+      <span class="path">/attendance/class/:classId</span>
+      <span class="auth-badge teacher">teacher</span>
+      <span class="desc">Submit attendance for a completed class</span>
+    </div>
+    <div class="endpoint-body">
+      <div class="params-title">Request Body</div>
+      <pre>[
+  { "studentId": "uuid", "status": "present" },
+  { "studentId": "uuid", "status": "late", "lateMinutes": 12, "remarks": "Called before joining" },
+  { "studentId": "uuid", "status": "absent", "remarks": "Did not respond" }
+]</pre>
+      <div class="params-title">Status Values</div>
+      <div class="param-row"><span class="param-name">present</span><span class="param-desc">Attended full session</span></div>
+      <div class="param-row"><span class="param-name">late</span><span class="param-desc">Joined late — provide lateMinutes</span></div>
+      <div class="param-row"><span class="param-name">absent</span><span class="param-desc">Did not attend</span></div>
+      <div class="param-row"><span class="param-name">excused</span><span class="param-desc">Absence pre-approved</span></div>
+      <div class="param-row"><span class="param-name">technical_issue</span><span class="param-desc">Platform/connectivity failure</span></div>
+    </div>
+  </div>
+
+  <div class="endpoint"><div class="endpoint-header" onclick="toggle(this)"><span class="method GET">GET</span><span class="path">/attendance/student/:studentId</span><span class="auth-badge admin">admin</span><span class="desc">Student attendance history with filters</span></div><div class="endpoint-body"><div class="param-row"><span class="param-name">from / to</span><span class="param-type">date</span><span class="param-req">optional</span></div><div class="param-row"><span class="param-name">course_id</span><span class="param-type">uuid</span><span class="param-req">optional</span></div></div></div>
+
+  <!-- LEAVE -->
+  <h2 id="leave-teacher">🏖 Leave Requests (Teacher)</h2>
+
+  <div class="endpoint">
+    <div class="endpoint-header" onclick="toggle(this)">
+      <span class="method POST">POST</span>
+      <span class="path">/leave/request</span>
+      <span class="auth-badge teacher">teacher</span>
+      <span class="desc">Submit a leave request</span>
+    </div>
+    <div class="endpoint-body">
+      <div class="params-title">Request Body</div>
+      <div class="param-row"><span class="param-name">leaveType</span><span class="param-type">enum</span><span class="param-req">required</span><span class="param-desc">annual|sick|emergency|personal</span></div>
+      <div class="param-row"><span class="param-name">startDate</span><span class="param-type">date</span><span class="param-req">required</span></div>
+      <div class="param-row"><span class="param-name">endDate</span><span class="param-type">date</span><span class="param-req">required</span></div>
+      <div class="param-row"><span class="param-name">reason</span><span class="param-type">string</span><span class="param-req">required</span></div>
+      <div class="param-row"><span class="param-name">attachment</span><span class="param-type">file</span><span class="param-req">optional</span><span class="param-desc">PDF or image, max 5MB</span></div>
+    </div>
+  </div>
+
+  <div class="endpoint"><div class="endpoint-header" onclick="toggle(this)"><span class="method GET">GET</span><span class="path">/leave/my</span><span class="auth-badge teacher">teacher</span><span class="desc">View my leave requests and their status</span></div><div class="endpoint-body"><pre>Returns all leave requests for logged-in teacher, newest first.</pre></div></div>
+
+  <h2 id="leave-admin">🏖 Leave Management (Admin)</h2>
+
+  <div class="endpoint"><div class="endpoint-header" onclick="toggle(this)"><span class="method GET">GET</span><span class="path">/leave</span><span class="auth-badge admin">admin</span><span class="desc">All leave requests — filterable</span></div><div class="endpoint-body"><div class="param-row"><span class="param-name">status</span><span class="param-type">enum</span><span class="param-req">optional</span><span class="param-desc">pending|approved|rejected</span></div><div class="param-row"><span class="param-name">teacher_id</span><span class="param-type">uuid</span><span class="param-req">optional</span></div></div></div>
+
+  <div class="endpoint"><div class="endpoint-header" onclick="toggle(this)"><span class="method PUT">PUT</span><span class="path">/leave/:id/review</span><span class="auth-badge admin">admin</span><span class="desc">Approve or reject a leave request</span></div><div class="endpoint-body"><div class="param-row"><span class="param-name">status</span><span class="param-type">enum</span><span class="param-req">required</span><span class="param-desc">approved | rejected</span></div><div class="param-row"><span class="param-name">reviewNotes</span><span class="param-type">string</span><span class="param-req">optional</span></div><pre style="margin-top:10px">On approval: system automatically flags all classes in the leave period.
+Returns list of affected classes for reassignment.</pre></div></div>
+
+  <div class="endpoint"><div class="endpoint-header" onclick="toggle(this)"><span class="method POST">POST</span><span class="path">/leave/emergency</span><span class="auth-badge admin">admin</span><span class="desc">Mark emergency absence — bypasses request flow</span></div><div class="endpoint-body"><div class="param-row"><span class="param-name">teacherId</span><span class="param-type">uuid</span><span class="param-req">required</span></div><div class="param-row"><span class="param-name">date</span><span class="param-type">date</span><span class="param-req">required</span></div><div class="param-row"><span class="param-name">reason</span><span class="param-type">string</span><span class="param-req">required</span></div></div></div>
+
+  <!-- DASHBOARD -->
+  <h2 id="dashboard">📊 Dashboard (Admin)</h2>
+
+  <div class="endpoint"><div class="endpoint-header" onclick="toggle(this)"><span class="method GET">GET</span><span class="path">/dashboard/overview</span><span class="auth-badge admin">admin</span><span class="desc">KPI summary for today</span></div><div class="endpoint-body"><pre>Returns: totalClassesToday, ongoingNow, completedToday, cancelledToday,
+teachersOnLeave, overloadedTeachers, pendingAttendance, activeConflicts</pre></div></div>
+
+  <div class="endpoint"><div class="endpoint-header" onclick="toggle(this)"><span class="method GET">GET</span><span class="path">/dashboard/calendar</span><span class="auth-badge admin">admin</span><span class="desc">Calendar data for daily/weekly/monthly view</span></div><div class="endpoint-body"><div class="param-row"><span class="param-name">view</span><span class="param-type">enum</span><span class="param-req">required</span><span class="param-desc">day | week | month</span></div><div class="param-row"><span class="param-name">date</span><span class="param-type">date</span><span class="param-req">required</span><span class="param-desc">Reference date</span></div></div></div>
+
+  <!-- REPORTS -->
+  <h2 id="reports">📈 Reports (Admin)</h2>
+
+  <div class="endpoint"><div class="endpoint-header" onclick="toggle(this)"><span class="method GET">GET</span><span class="path">/reports/teacher-workload</span><span class="auth-badge admin">admin</span><span class="desc">Hours and class counts per teacher</span></div><div class="endpoint-body"><div class="param-row"><span class="param-name">from</span><span class="param-type">date</span><span class="param-req">required</span></div><div class="param-row"><span class="param-name">to</span><span class="param-type">date</span><span class="param-req">required</span></div><div class="param-row"><span class="param-name">teacher_id</span><span class="param-type">uuid</span><span class="param-req">optional</span></div><div class="param-row"><span class="param-name">format</span><span class="param-type">enum</span><span class="param-req">optional</span><span class="param-desc">json (default) | pdf | excel | csv</span></div></div></div>
+
+  <div class="endpoint"><div class="endpoint-header" onclick="toggle(this)"><span class="method GET">GET</span><span class="path">/reports/attendance</span><span class="auth-badge admin">admin</span><span class="desc">Student attendance report</span></div><div class="endpoint-body"><div class="param-row"><span class="param-name">from / to</span><span class="param-type">date</span><span class="param-req">required</span></div><div class="param-row"><span class="param-name">student_id / course_id</span><span class="param-type">uuid</span><span class="param-req">optional</span></div><div class="param-row"><span class="param-name">format</span><span class="param-type">enum</span><span class="param-req">optional</span><span class="param-desc">json | pdf | excel | csv</span></div></div></div>
+
+  <div class="endpoint"><div class="endpoint-header" onclick="toggle(this)"><span class="method GET">GET</span><span class="path">/reports/leave</span><span class="auth-badge admin">admin</span><span class="desc">Leave report by teacher and date range</span></div><div class="endpoint-body"><div class="param-row"><span class="param-name">from / to</span><span class="param-type">date</span><span class="param-req">required</span></div><div class="param-row"><span class="param-name">format</span><span class="param-type">enum</span><span class="param-req">optional</span></div></div></div>
+
+  <div class="endpoint"><div class="endpoint-header" onclick="toggle(this)"><span class="method GET">GET</span><span class="path">/reports/schedule-utilization</span><span class="auth-badge admin">admin</span><span class="desc">Slot usage efficiency report</span></div><div class="endpoint-body"><div class="param-row"><span class="param-name">from / to</span><span class="param-type">date</span><span class="param-req">required</span></div></div></div>
+
+</main>
+</div>
+</body>
+</html>
