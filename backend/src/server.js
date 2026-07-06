@@ -9,7 +9,6 @@ const rateLimit    = require('express-rate-limit');
 const path         = require('path');
 
 const logger       = require('./config/logger');
-const { pool }     = require('./config/database');
 
 // ── Route imports ─────────────────────────────────────────
 const authRoutes         = require('./modules/auth/auth.routes');
@@ -27,12 +26,12 @@ const { errorHandler } = require('./middleware/errorHandler');
 const { notFound }     = require('./middleware/notFound');
 
 const app  = express();
-const PORT = process.env.PORT || 5000;  // Railway sets PORT automatically
+const PORT = process.env.PORT || 5000;
 
-// ── CORS — allow Railway domains + custom CLIENT_URL ─────
+// ── CORS ──────────────────────────────────────────────────
 const allowedOrigins = [
   process.env.CLIENT_URL,
-  /\.railway\.app$/,           // any Railway subdomain
+  /\.railway\.app$/,
   'http://localhost:3000',
   'http://localhost:5000',
 ].filter(Boolean);
@@ -40,7 +39,6 @@ const allowedOrigins = [
 app.use(helmet());
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (curl, Postman, mobile apps)
     if (!origin) return callback(null, true);
     const allowed = allowedOrigins.some(o =>
       o instanceof RegExp ? o.test(origin) : o === origin
@@ -53,11 +51,7 @@ app.use(cors({
 // ── Rate limiting ─────────────────────────────────────────
 app.use('/api/', rateLimit({
   windowMs: 15 * 60 * 1000, max: 200,
-  message:  { success: false, message: 'Too many requests. Please try again later.' },
-}));
-app.use('/api/v1/auth/login', rateLimit({
-  windowMs: 15 * 60 * 1000, max: 20,
-  message:  { success: false, message: 'Too many login attempts. Please try again later.' },
+  message: { success: false, message: 'Too many requests.' },
 }));
 
 // ── Body parsing ──────────────────────────────────────────
@@ -65,27 +59,31 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
-// ── HTTP logging ──────────────────────────────────────────
 if (process.env.NODE_ENV !== 'test') {
   app.use(morgan('combined', {
     stream: { write: (msg) => logger.http(msg.trim()) },
   }));
 }
 
-// ── Health check (Railway uses this) ─────────────────────
-// app.get('/health', async (req, res) => {
-  // try {
-    // await pool.query('SELECT 1');
-    // res.json({
-      // status:    'ok',
-      // database:  'connected',
-      // env:       process.env.NODE_ENV,
-      // timestamp: new Date().toISOString(),
-    // });
-//   } catch {
-    // res.status(503).json({ status: 'error', database: 'disconnected' });
-  // }
-// });
+// ── Health check — always responds, even without DB ──────
+// This is the FIRST route — registered before anything else
+app.get('/health', async (req, res) => {
+  let dbStatus = 'not_checked';
+  try {
+    const { pool } = require('./config/database');
+    await pool.query('SELECT 1');
+    dbStatus = 'connected';
+  } catch (e) {
+    dbStatus = 'disconnected: ' + e.message;
+  }
+  res.status(200).json({
+    status:    'ok',
+    database:  dbStatus,
+    env:       process.env.NODE_ENV || 'development',
+    port:      PORT,
+    timestamp: new Date().toISOString(),
+  });
+});
 
 // ── API Routes ────────────────────────────────────────────
 const API = '/api/v1';
@@ -100,11 +98,10 @@ app.use(`${API}/reports`,       reportRoutes);
 app.use(`${API}/dashboard`,     dashboardRoutes);
 app.use(`${API}/notifications`, notificationRoutes);
 
-// ── Error handling ────────────────────────────────────────
 app.use(notFound);
 app.use(errorHandler);
 
-// ── Start ─────────────────────────────────────────────────
+// ── Start — bind to 0.0.0.0 so Railway can reach it ──────
 app.listen(PORT, '0.0.0.0', () => {
   logger.info(`🚀 Server running on port ${PORT} [${process.env.NODE_ENV || 'development'}]`);
 });

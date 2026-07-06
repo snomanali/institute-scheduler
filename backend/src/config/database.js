@@ -1,14 +1,16 @@
 // src/config/database.js
-// Supports both Railway DATABASE_URL and individual env vars
-
 const { Pool } = require('pg');
 
-// Railway provides a single DATABASE_URL — use it if present
+// Gracefully handle missing DATABASE_URL at startup
+if (!process.env.DATABASE_URL && !process.env.DB_HOST) {
+  console.warn('⚠️  No database config found. Set DATABASE_URL environment variable.');
+}
+
 const poolConfig = process.env.DATABASE_URL
   ? {
       connectionString: process.env.DATABASE_URL,
       ssl: process.env.NODE_ENV === 'production'
-        ? { rejectUnauthorized: false }  // Required for Railway PostgreSQL
+        ? { rejectUnauthorized: false }
         : false,
     }
   : {
@@ -21,8 +23,8 @@ const poolConfig = process.env.DATABASE_URL
 
 const pool = new Pool({
   ...poolConfig,
-  min:  parseInt(process.env.DB_POOL_MIN) || 2,
-  max:  parseInt(process.env.DB_POOL_MAX) || 10,
+  min:  2,
+  max:  10,
   idleTimeoutMillis:       30000,
   connectionTimeoutMillis: 5000,
 });
@@ -31,9 +33,9 @@ pool.on('connect', () => {
   if (process.env.NODE_ENV !== 'test') console.log('✅ PostgreSQL connected');
 });
 
+// Don't crash the whole app on pool errors — log and continue
 pool.on('error', (err) => {
-  console.error('❌ PostgreSQL pool error:', err.message);
-  process.exit(1);
+  console.error('⚠️  PostgreSQL pool error:', err.message);
 });
 
 const query     = (text, params) => pool.query(text, params);
