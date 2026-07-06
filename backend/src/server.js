@@ -73,19 +73,19 @@ if (process.env.NODE_ENV !== 'test') {
 }
 
 // ── Health check (Railway uses this) ─────────────────────
-app.get('/health', async (req, res) => {
-  try {
-    await pool.query('SELECT 1');
-    res.json({
-      status:    'ok',
-      database:  'connected',
-      env:       process.env.NODE_ENV,
-      timestamp: new Date().toISOString(),
-    });
-  } catch {
-    res.status(503).json({ status: 'error', database: 'disconnected' });
-  }
-});
+// app.get('/health', async (req, res) => {
+  // try {
+    // await pool.query('SELECT 1');
+    // res.json({
+      // status:    'ok',
+      // database:  'connected',
+      // env:       process.env.NODE_ENV,
+      // timestamp: new Date().toISOString(),
+    // });
+//   } catch {
+    // res.status(503).json({ status: 'error', database: 'disconnected' });
+  // }
+// });
 
 // ── API Routes ────────────────────────────────────────────
 const API = '/api/v1';
