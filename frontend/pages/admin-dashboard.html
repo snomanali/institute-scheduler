@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Dashboard — Admin</title>
+<link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <div class="topbar">
+      <span class="page-title" id="pageTitle">Dashboard</span>
+      <div class="topbar-right">
+        <span id="todayDate" class="text-muted"></span>
+      </div>
+    </div>
+    <div class="page">
+      <!-- KPIs -->
+      <div class="kpi-row" id="kpiRow">
+        <div class="kpi-card accent"><div class="num" id="k1">…</div><div class="label">Classes Today</div></div>
+        <div class="kpi-card success"><div class="num" id="k2">…</div><div class="label">Completed</div></div>
+        <div class="kpi-card"><div class="num" id="k3">…</div><div class="label">Ongoing Now</div></div>
+        <div class="kpi-card danger"><div class="num" id="k4">…</div><div class="label">Cancelled</div></div>
+        <div class="kpi-card warning"><div class="num" id="k5">…</div><div class="label">On Leave</div></div>
+        <div class="kpi-card danger"><div class="num" id="k6">…</div><div class="label">Pending Attendance</div></div>
+      </div>
+
+      <div class="grid-2">
+        <!-- Today's classes -->
+        <div class="card">
+          <div class="card-header">
+            <h3>Today's Classes</h3>
+            <a href="admin-schedule.html" class="btn btn-sm btn-outline">View All</a>
+          </div>
+          <div class="card-body" id="todayClasses"><p class="text-muted">Loading…</p></div>
+        </div>
+
+        <!-- Teacher availability -->
+        <div class="card">
+          <div class="card-header">
+            <h3>Teacher Availability</h3>
+            <span id="availDate" class="text-muted" style="font-size:0.78rem"></span>
+          </div>
+          <div class="card-body" id="teacherAvail"><p class="text-muted">Loading…</p></div>
+        </div>
+      </div>
+
+      <!-- Leave requests -->
+      <div class="card mt-3">
+        <div class="card-header">
+          <h3>Pending Leave Requests</h3>
+          <a href="admin-leave.html" class="btn btn-sm btn-outline">Manage</a>
+        </div>
+        <div class="card-body" id="leaveList"><p class="text-muted">Loading…</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../js/config.js"></script>
+<script src="../js/layout.js"></script>
+<script>
+initPage('admin', 'admin-dashboard.html', 'Dashboard');
+
+const today = new Date().toISOString().split('T')[0];
+document.getElementById('todayDate').textContent = new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+document.getElementById('availDate').textContent = UI.formatDate(today);
+
+async function loadDashboard() {
+  try {
+    const [overview, classes, avail, leave] = await Promise.all([
+      API.get('/dashboard/overview'),
+      API.get(`/classes?view=day&date=${today}`),
+      API.get(`/dashboard/availability?date=${today}`),
+      API.get('/leave?status=pending'),
+    ]);
+
+    const o = overview.data;
+    const c = o.classes;
+    document.getElementById('k1').textContent = c.total_today    || 0;
+    document.getElementById('k2').textContent = c.completed_today|| 0;
+    document.getElementById('k3').textContent = c.ongoing_now    || 0;
+    document.getElementById('k4').textContent = c.cancelled_today|| 0;
+    document.getElementById('k5').textContent = o.teachers.on_leave_today || 0;
+    document.getElementById('k6').textContent = o.pendingAttendance || 0;
+
+    // Today's classes
+    const cl = classes.data;
+    document.getElementById('todayClasses').innerHTML = cl.length ? cl.map(c => `
+      <div class="class-card ${c.status}">
+        <div class="class-time">${UI.formatTime(c.start_time)} – ${UI.formatTime(c.end_time)} · ${UI.platformIcon(c.platform)} ${c.platform.replace('_',' ')}</div>
+        <div class="class-title">${c.subject?.name || '—'} ${c.course ? '· ' + c.course.name : ''}</div>
+        <div class="class-meta">👩‍🏫 ${c.teacher?.name || '—'} · 👥 ${c.student_count || 0} students ${UI.statusBadge(c.status)}</div>
+      </div>`).join('') : '<div class="empty-state"><div class="icon">📅</div><p>No classes scheduled today</p></div>';
+
+    // Teacher availability
+    const av = avail.data;
+    document.getElementById('teacherAvail').innerHTML = av.length ? `
+      <div class="table-wrap"><table>
+        <thead><tr><th>Teacher</th><th>Hours Today</th><th>Status</th></tr></thead>
+        <tbody>${av.map(t => `
+          <tr>
+            <td><strong>${t.full_name}</strong></td>
+            <td>${parseFloat(t.hours_scheduled||0).toFixed(1)}h / ${t.max_hours_per_day}h</td>
+            <td>${UI.statusBadge(t.availability_status)}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table></div>` : '<p class="text-muted">No teacher data</p>';
+
+    // Leave requests
+    const lv = leave.data;
+    document.getElementById('leaveList').innerHTML = lv.length ? `
+      <div class="table-wrap"><table>
+        <thead><tr><th>Teacher</th><th>Type</th><th>Dates</th><th>Reason</th><th>Action</th></tr></thead>
+        <tbody>${lv.map(r => `
+          <tr>
+            <td><strong>${r.teacher_name}</strong></td>
+            <td>${UI.statusBadge(r.leave_type)}</td>
+            <td>${UI.formatDate(r.start_date)} – ${UI.formatDate(r.end_date)}</td>
+            <td class="text-muted">${(r.reason||'').substring(0,40)}…</td>
+            <td>
+              <button class="btn btn-sm btn-success" onclick="reviewLeave('${r.id}','approved')">Approve</button>
+              <button class="btn btn-sm btn-danger" onclick="reviewLeave('${r.id}','rejected')" style="margin-left:4px">Reject</button>
+            </td>
+          </tr>`).join('')}
+        </tbody>
+      </table></div>` : '<div class="empty-state"><div class="icon">✅</div><p>No pending leave requests</p></div>';
+
+  } catch(e) {
+    console.error(e);
+    UI.toast('Failed to load dashboard data', 'error');
+  }
+}
+
+async function reviewLeave(id, status) {
+  try {
+    await API.put(`/leave/${id}/review`, { status });
+    UI.toast(`Leave ${status} successfully`, status === 'approved' ? 'success' : 'error');
+    loadDashboard();
+  } catch(e) { UI.toast(e.message, 'error'); }
+}
+
+loadDashboard();
+</script>
+</body>
+</html>

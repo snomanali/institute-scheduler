@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Attendance — Teacher</title>
+<link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <div class="topbar"><span class="page-title" id="pageTitle">Mark Attendance</span></div>
+    <div class="page">
+
+      <!-- Class selector -->
+      <div class="card mb-2">
+        <div class="card-body" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+          <div class="form-group" style="margin:0;flex:1;min-width:200px">
+            <label>Select Class</label>
+            <select class="form-control" id="classSelect" onchange="loadClass()">
+              <option value="">Choose a class…</option>
+            </select>
+          </div>
+          <button class="btn btn-ghost" onclick="loadMyClasses()">🔄 Refresh</button>
+        </div>
+      </div>
+
+      <!-- Class info -->
+      <div id="classInfo" style="display:none" class="card mb-2">
+        <div class="card-body" id="classInfoBody"></div>
+      </div>
+
+      <!-- Attendance form -->
+      <div id="attendanceForm" style="display:none" class="card">
+        <div class="card-header">
+          <h3>Student Attendance</h3>
+          <button class="btn btn-sm btn-ghost" onclick="markAll('present')">✓ All Present</button>
+        </div>
+        <div class="card-body">
+          <div id="studentRows"></div>
+          <div class="divider"></div>
+          <button class="btn btn-primary" id="submitBtn" onclick="submitAttendance()" style="width:100%;justify-content:center">
+            Submit Attendance
+          </button>
+        </div>
+      </div>
+
+      <div id="noClass" class="empty-state" style="margin-top:40px">
+        <div class="icon">✅</div>
+        <p>Select a class above to mark attendance</p>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="../js/config.js"></script>
+<script src="../js/layout.js"></script>
+<script>
+initPage('teacher','teacher-attendance.html','Mark Attendance');
+let currentStudents = [];
+let attendance = {};
+
+async function loadMyClasses() {
+  try {
+    const res = await API.get('/attendance/my/pending');
+    const sel = document.getElementById('classSelect');
+    sel.innerHTML = '<option value="">Choose a class…</option>' +
+      (res.data||[]).map(c=>
+        `<option value="${c.id}">${UI.formatDate(c.scheduled_date)} ${UI.formatTime(c.start_time)} — ${c.subject_name} (${c.student_count} students)</option>`
+      ).join('');
+
+    // Also check URL param
+    const params = new URLSearchParams(window.location.search);
+    const classId = params.get('classId');
+    if (classId) { sel.value = classId; loadClass(); }
+  } catch(e) { UI.toast('Failed to load classes','error'); }
+}
+
+async function loadClass() {
+  const classId = document.getElementById('classSelect').value;
+  if (!classId) {
+    document.getElementById('classInfo').style.display = 'none';
+    document.getElementById('attendanceForm').style.display = 'none';
+    document.getElementById('noClass').style.display = 'block';
+    return;
+  }
+  document.getElementById('noClass').style.display = 'none';
+
+  try {
+    const res = await API.get(`/classes/${classId}`);
+    const c = res.data;
+    document.getElementById('classInfo').style.display = 'block';
+    document.getElementById('classInfoBody').innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px">
+        <div><span class="text-muted">Subject</span><br><strong>${c.subject?.name||'—'}</strong></div>
+        <div><span class="text-muted">Date</span><br><strong>${UI.formatDate(c.scheduled_date)}</strong></div>
+        <div><span class="text-muted">Time</span><br><strong>${UI.formatTime(c.start_time)} – ${UI.formatTime(c.end_time)}</strong></div>
+        <div><span class="text-muted">Platform</span><br><strong>${UI.platformIcon(c.platform)} ${c.platform?.replace('_',' ')||''}</strong></div>
+        ${c.meeting_link?`<div><a href="${c.meeting_link}" target="_blank" class="btn btn-sm btn-primary">Join Class</a></div>`:''}
+      </div>`;
+
+    currentStudents = c.students || [];
+    attendance = {};
+    currentStudents.forEach(s => {
+      attendance[s.id] = { status: s.status || 'present', lateMinutes: 0, remarks: '' };
+    });
+
+    renderAttendanceRows();
+    document.getElementById('attendanceForm').style.display = 'block';
+  } catch(e) { UI.toast('Failed to load class details','error'); }
+}
+
+function renderAttendanceRows() {
+  document.getElementById('studentRows').innerHTML = currentStudents.map(s => `
+    <div class="att-row" id="row-${s.id}">
+      <div>
+        <div class="att-name">${s.name}</div>
+        <div id="lateField-${s.id}" style="display:none;margin-top:6px">
+          <input type="number" placeholder="Minutes late" min="1" max="120"
+            class="form-control" style="width:140px;display:inline-block"
+            onchange="attendance['${s.id}'].lateMinutes=parseInt(this.value)||0">
+        </div>
+        <div style="margin-top:4px">
+          <input type="text" placeholder="Remarks (optional)" class="form-control"
+            style="width:220px;display:inline-block;margin-top:4px"
+            onchange="attendance['${s.id}'].remarks=this.value">
+        </div>
+      </div>
+      <div class="att-options">
+        ${['present','late','absent','excused'].map(st=>`
+          <button class="att-btn ${st} ${attendance[s.id]?.status===st?'selected':''}"
+            onclick="setStatus('${s.id}','${st}',this)">
+            ${{present:'✓ Present',late:'⏱ Late',absent:'✕ Absent',excused:'~ Excused'}[st]}
+          </button>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+function setStatus(studentId, status, btn) {
+  attendance[studentId].status = status;
+  const row = document.getElementById(`row-${studentId}`);
+  row.querySelectorAll('.att-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  document.getElementById(`lateField-${studentId}`).style.display = status==='late' ? 'block' : 'none';
+}
+
+function markAll(status) {
+  currentStudents.forEach(s => {
+    attendance[s.id].status = status;
+    const row = document.getElementById(`row-${s.id}`);
+    row.querySelectorAll('.att-btn').forEach(b => {
+      b.classList.toggle('selected', b.classList.contains(status));
+    });
+  });
+}
+
+async function submitAttendance() {
+  const classId = document.getElementById('classSelect').value;
+  const btn = document.getElementById('submitBtn');
+  const records = currentStudents.map(s => ({
+    studentId:   s.id,
+    status:      attendance[s.id].status,
+    lateMinutes: attendance[s.id].lateMinutes || undefined,
+    remarks:     attendance[s.id].remarks     || undefined,
+  }));
+
+  UI.loading(btn, true);
+  try {
+    const res = await API.post(`/attendance/class/${classId}`, records);
+    UI.toast(`Attendance submitted for ${res.data.submitted} students`, 'success');
+    document.getElementById('attendanceForm').style.display = 'none';
+    document.getElementById('classInfo').style.display = 'none';
+    document.getElementById('noClass').style.display = 'block';
+    loadMyClasses();
+  } catch(e) { UI.toast(e.message||'Failed to submit attendance','error'); }
+  finally { UI.loading(btn, false); }
+}
+
+loadMyClasses();
+</script>
+</body>
+</html>

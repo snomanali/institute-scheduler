@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Schedule — Admin</title>
+<link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <div class="topbar">
+      <span class="page-title" id="pageTitle">Schedule</span>
+      <div class="topbar-right">
+        <button class="btn btn-primary" onclick="openModal()">+ Schedule Class</button>
+      </div>
+    </div>
+    <div class="page">
+      <!-- Filters -->
+      <div class="card mb-2">
+        <div class="card-body" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+          <div class="form-group" style="margin:0;flex:1;min-width:130px">
+            <label>View</label>
+            <select class="form-control" id="viewMode" onchange="loadClasses()">
+              <option value="day">Day</option>
+              <option value="week" selected>Week</option>
+              <option value="month">Month</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin:0;flex:1;min-width:150px">
+            <label>Date</label>
+            <input type="date" class="form-control" id="filterDate" onchange="loadClasses()">
+          </div>
+          <div class="form-group" style="margin:0;flex:1;min-width:150px">
+            <label>Status</label>
+            <select class="form-control" id="filterStatus" onchange="loadClasses()">
+              <option value="">All Statuses</option>
+              <option value="scheduled">Scheduled</option>
+              <option value="ongoing">Ongoing</option>
+              <option value="completed">Completed</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </div>
+          <button class="btn btn-ghost" onclick="loadClasses()">🔄 Refresh</button>
+        </div>
+      </div>
+
+      <!-- Classes list -->
+      <div id="classesList"><p class="text-muted">Loading…</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- Schedule Modal -->
+<div class="modal-overlay" id="modal">
+  <div class="modal" style="max-width:620px">
+    <div class="modal-header">
+      <h3>Schedule New Class</h3>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Teacher *</label>
+          <select class="form-control" id="mTeacher" onchange="loadAvailableTeachers()"><option value="">Select Teacher</option></select>
+        </div>
+        <div class="form-group">
+          <label>Subject *</label>
+          <select class="form-control" id="mSubject"><option value="">Select Subject</option></select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Course</label>
+          <select class="form-control" id="mCourse"><option value="">No Course</option></select>
+        </div>
+        <div class="form-group">
+          <label>Duration *</label>
+          <select class="form-control" id="mDuration">
+            <option value="40">40 minutes</option>
+            <option value="60" selected>60 minutes</option>
+            <option value="90">90 minutes</option>
+            <option value="120">120 minutes</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Date *</label>
+          <input type="date" class="form-control" id="mDate">
+        </div>
+        <div class="form-group">
+          <label>Start Time *</label>
+          <input type="time" class="form-control" id="mTime">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Platform *</label>
+          <select class="form-control" id="mPlatform">
+            <option value="google_meet">🎥 Google Meet</option>
+            <option value="skype">💬 Skype</option>
+            <option value="microsoft_teams">🟣 Microsoft Teams</option>
+            <option value="moodle">📚 Moodle</option>
+            <option value="custom">🔗 Custom</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Meeting Link</label>
+          <input type="url" class="form-control" id="mLink" placeholder="https://meet.google.com/…">
+        </div>
+      </div>
+
+      <!-- Students -->
+      <div class="form-group">
+        <label>Assign Students</label>
+        <select class="form-control" id="mStudents" multiple style="height:100px"></select>
+        <p class="text-muted mt-1">Hold Ctrl/Cmd to select multiple</p>
+      </div>
+
+      <!-- Recurring -->
+      <div class="form-group">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" id="mRecurring" onchange="toggleRecurring()"> Recurring class
+        </label>
+      </div>
+      <div id="recurringOpts" style="display:none">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Frequency</label>
+            <select class="form-control" id="mFreq">
+              <option value="weekly">Weekly</option>
+              <option value="daily">Daily</option>
+              <option value="monthly">Monthly</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>End Date</label>
+            <input type="date" class="form-control" id="mEndDate">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Days of Week (for weekly)</label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+            ${['monday','tuesday','wednesday','thursday','friday','saturday','sunday'].map(d=>`
+              <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:0.82rem">
+                <input type="checkbox" class="dow" value="${d}"> ${d.charAt(0).toUpperCase()+d.slice(1,3)}
+              </label>`).join('')}
+          </div>
+        </div>
+      </div>
+
+      <!-- Conflict errors -->
+      <div id="conflictBox" style="display:none;background:var(--red-lt);border:1px solid #F0C4C2;border-radius:6px;padding:14px;margin-top:12px">
+        <strong style="color:var(--red);font-size:0.85rem">⚠ Scheduling Conflicts Detected</strong>
+        <ul id="conflictList" style="margin-top:8px;padding-left:18px;font-size:0.82rem;color:var(--red)"></ul>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" id="saveBtn" onclick="saveClass()">Schedule Class</button>
+    </div>
+  </div>
+</div>
+
+<script src="../js/config.js"></script>
+<script src="../js/layout.js"></script>
+<script>
+initPage('admin','admin-schedule.html','Schedule');
+document.getElementById('filterDate').value = new Date().toISOString().split('T')[0];
+
+async function loadClasses() {
+  const view   = document.getElementById('viewMode').value;
+  const date   = document.getElementById('filterDate').value;
+  const status = document.getElementById('filterStatus').value;
+  let url = `/classes?view=${view}&date=${date}`;
+  if (status) url += `&status=${status}`;
+  try {
+    const res = await API.get(url);
+    const list = document.getElementById('classesList');
+    if (!res.data.length) {
+      list.innerHTML = '<div class="empty-state"><div class="icon">📅</div><p>No classes found for this period</p></div>'; return;
+    }
+    list.innerHTML = `<div class="card"><div class="card-body">` +
+      res.data.map(c => `
+        <div class="class-card ${c.status}">
+          <div class="flex-between">
+            <div>
+              <div class="class-time">${UI.formatDate(c.scheduled_date)} · ${UI.formatTime(c.start_time)}–${UI.formatTime(c.end_time)} · ${c.duration_minutes}min</div>
+              <div class="class-title">${c.subject?.name||'—'} ${c.course?'· '+c.course.name:''}</div>
+              <div class="class-meta">👩‍🏫 ${c.teacher?.name||'—'} · 👥 ${c.student_count||0} students · ${UI.platformIcon(c.platform)} ${c.platform.replace('_',' ')}</div>
+            </div>
+            <div style="display:flex;gap:6px;align-items:center">
+              ${UI.statusBadge(c.status)}
+              ${c.status==='scheduled'?`<button class="btn btn-sm btn-danger" onclick="cancelClass('${c.id}')">Cancel</button>`:''}
+            </div>
+          </div>
+        </div>`).join('') + `</div></div>`;
+  } catch(e) { UI.toast('Failed to load classes','error'); }
+}
+
+async function openModal() {
+  document.getElementById('mDate').value = new Date().toISOString().split('T')[0];
+  document.getElementById('conflictBox').style.display = 'none';
+  document.getElementById('modal').classList.add('open');
+  await Promise.all([loadTeachers(), loadSubjects(), loadCourses(), loadStudents()]);
+}
+function closeModal() { document.getElementById('modal').classList.remove('open'); }
+function toggleRecurring() {
+  document.getElementById('recurringOpts').style.display =
+    document.getElementById('mRecurring').checked ? 'block' : 'none';
+}
+
+async function loadTeachers() {
+  const res = await API.get('/teachers');
+  const sel = document.getElementById('mTeacher');
+  sel.innerHTML = '<option value="">Select Teacher</option>' +
+    res.data.map(t => `<option value="${t.id}">${t.full_name}</option>`).join('');
+}
+async function loadSubjects() {
+  const res = await API.get('/courses/subjects');
+  const sel = document.getElementById('mSubject');
+  sel.innerHTML = '<option value="">Select Subject</option>' +
+    res.data.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+}
+async function loadCourses() {
+  const res = await API.get('/courses');
+  const sel = document.getElementById('mCourse');
+  sel.innerHTML = '<option value="">No Course</option>' +
+    res.data.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+}
+async function loadStudents() {
+  const res = await API.get('/students');
+  const sel = document.getElementById('mStudents');
+  sel.innerHTML = res.data.map(s => `<option value="${s.id}">${s.full_name}</option>`).join('');
+}
+
+async function saveClass() {
+  const btn = document.getElementById('saveBtn');
+  document.getElementById('conflictBox').style.display = 'none';
+
+  const body = {
+    teacherId:       document.getElementById('mTeacher').value,
+    subjectId:       document.getElementById('mSubject').value,
+    courseId:        document.getElementById('mCourse').value || undefined,
+    scheduledDate:   document.getElementById('mDate').value,
+    startTime:       document.getElementById('mTime').value,
+    durationMinutes: parseInt(document.getElementById('mDuration').value),
+    platform:        document.getElementById('mPlatform').value,
+    meetingLink:     document.getElementById('mLink').value || undefined,
+    studentIds:      [...document.getElementById('mStudents').selectedOptions].map(o=>o.value),
+  };
+
+  if (!body.teacherId || !body.subjectId || !body.scheduledDate || !body.startTime) {
+    UI.toast('Please fill all required fields','error'); return;
+  }
+
+  if (document.getElementById('mRecurring').checked) {
+    const dows = [...document.querySelectorAll('.dow:checked')].map(c=>c.value);
+    body.recurrence = {
+      frequency:  document.getElementById('mFreq').value,
+      daysOfWeek: dows,
+      endDate:    document.getElementById('mEndDate').value || undefined,
+    };
+  }
+
+  UI.loading(btn, true);
+  try {
+    const res = await API.post('/classes', body);
+    UI.toast(res.message || 'Class scheduled!', 'success');
+    closeModal(); loadClasses();
+  } catch(e) {
+    if (e.status === 409 && e.data?.conflicts) {
+      const box  = document.getElementById('conflictBox');
+      const list = document.getElementById('conflictList');
+      box.style.display = 'block';
+      list.innerHTML = e.data.conflicts.flatMap(c =>
+        (c.conflicts||[c]).map(x => `<li>${x.detail||x.message||JSON.stringify(x)}</li>`)
+      ).join('');
+    } else { UI.toast(e.message||'Failed to schedule class','error'); }
+  } finally { UI.loading(btn, false); }
+}
+
+async function cancelClass(id) {
+  const reason = prompt('Reason for cancellation:');
+  if (!reason) return;
+  try {
+    await API.delete(`/classes/${id}`, { reason });
+    UI.toast('Class cancelled','success'); loadClasses();
+  } catch(e) { UI.toast(e.message,'error'); }
+}
+
+loadClasses();
+</script>
+</body>
+</html>

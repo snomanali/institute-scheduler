@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Leave — Admin</title>
+<link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <div class="topbar">
+      <span class="page-title" id="pageTitle">Leave Management</span>
+      <div class="topbar-right">
+        <button class="btn btn-outline" onclick="openEmergencyModal()">⚠ Emergency Absence</button>
+      </div>
+    </div>
+    <div class="page">
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab('pending',this)">Pending</div>
+        <div class="tab" onclick="switchTab('approved',this)">Approved</div>
+        <div class="tab" onclick="switchTab('rejected',this)">Rejected</div>
+        <div class="tab" onclick="switchTab('',this)">All</div>
+      </div>
+      <div class="card">
+        <div class="card-body" id="leaveList"><p class="text-muted">Loading…</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Emergency Modal -->
+<div class="modal-overlay" id="emergencyModal">
+  <div class="modal">
+    <div class="modal-header"><h3>Mark Emergency Absence</h3><button class="modal-close" onclick="closeEmergencyModal()">×</button></div>
+    <div class="modal-body">
+      <div class="form-group"><label>Teacher *</label><select class="form-control" id="emTeacher"></select></div>
+      <div class="form-group"><label>Date *</label><input type="date" class="form-control" id="emDate"></div>
+      <div class="form-group"><label>Reason *</label><textarea class="form-control" id="emReason" rows="3" placeholder="Reason for emergency absence…"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeEmergencyModal()">Cancel</button>
+      <button class="btn btn-danger" id="emBtn" onclick="markEmergency()">Mark Absent</button>
+    </div>
+  </div>
+</div>
+
+<script src="../js/config.js"></script>
+<script src="../js/layout.js"></script>
+<script>
+initPage('admin','admin-leave.html','Leave Management');
+let currentStatus = 'pending';
+
+async function loadLeave(status) {
+  currentStatus = status;
+  let url = '/leave';
+  if (status) url += `?status=${status}`;
+  try {
+    const res = await API.get(url);
+    const el  = document.getElementById('leaveList');
+    if (!res.data.length) { el.innerHTML = '<div class="empty-state"><div class="icon">🏖</div><p>No leave requests found</p></div>'; return; }
+    el.innerHTML = `<div class="table-wrap"><table>
+      <thead><tr><th>Teacher</th><th>Type</th><th>From</th><th>To</th><th>Days</th><th>Status</th><th>Affected Classes</th><th>Actions</th></tr></thead>
+      <tbody>${res.data.map(r => `
+        <tr>
+          <td><strong>${r.teacher_name}</strong></td>
+          <td style="text-transform:capitalize">${r.leave_type}</td>
+          <td>${UI.formatDate(r.start_date)}</td>
+          <td>${UI.formatDate(r.end_date)}</td>
+          <td>${r.days_taken||1}</td>
+          <td>${UI.statusBadge(r.status)}</td>
+          <td>${r.affected_classes||0} classes</td>
+          <td>
+            ${r.status==='pending' ? `
+              <button class="btn btn-sm btn-success" onclick="review('${r.id}','approved')">Approve</button>
+              <button class="btn btn-sm btn-danger" onclick="review('${r.id}','rejected')" style="margin-left:4px">Reject</button>` : '—'}
+          </td>
+        </tr>`).join('')}
+      </tbody></table></div>`;
+  } catch(e) { UI.toast('Failed to load leave requests','error'); }
+}
+
+function switchTab(status, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  loadLeave(status);
+}
+
+async function review(id, status) {
+  const notes = status === 'rejected' ? prompt('Reason for rejection (optional):') : '';
+  try {
+    await API.put(`/leave/${id}/review`, { status, reviewNotes: notes });
+    UI.toast(`Leave ${status}`,'success');
+    loadLeave(currentStatus);
+  } catch(e) { UI.toast(e.message,'error'); }
+}
+
+async function openEmergencyModal() {
+  document.getElementById('emDate').value = new Date().toISOString().split('T')[0];
+  document.getElementById('emergencyModal').classList.add('open');
+  const res = await API.get('/teachers');
+  document.getElementById('emTeacher').innerHTML = res.data.map(t=>`<option value="${t.id}">${t.full_name}</option>`).join('');
+}
+function closeEmergencyModal() { document.getElementById('emergencyModal').classList.remove('open'); }
+
+async function markEmergency() {
+  const btn = document.getElementById('emBtn');
+  const body = {
+    teacherId: document.getElementById('emTeacher').value,
+    date:      document.getElementById('emDate').value,
+    reason:    document.getElementById('emReason').value.trim(),
+  };
+  if (!body.reason) { UI.toast('Reason is required','error'); return; }
+  UI.loading(btn, true);
+  try {
+    const res = await API.post('/leave/emergency', body);
+    UI.toast(`Emergency absence marked. ${res.data.cancelledClasses?.length||0} classes cancelled.`,'success');
+    closeEmergencyModal(); loadLeave(currentStatus);
+  } catch(e) { UI.toast(e.message,'error'); }
+  finally { UI.loading(btn, false); }
+}
+
+loadLeave('pending');
+</script>
+</body>
+</html>

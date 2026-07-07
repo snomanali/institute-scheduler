@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Leave — Teacher</title>
+<link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <div class="topbar">
+      <span class="page-title" id="pageTitle">My Leave</span>
+      <div class="topbar-right">
+        <button class="btn btn-primary" onclick="openModal()">+ Request Leave</button>
+      </div>
+    </div>
+    <div class="page">
+      <div class="card">
+        <div class="card-header"><h3>My Leave Requests</h3></div>
+        <div class="card-body" id="leaveList"><p class="text-muted">Loading…</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Leave request modal -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="modal-header"><h3>Request Leave</h3><button class="modal-close" onclick="closeModal()">×</button></div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Leave Type *</label>
+        <select class="form-control" id="lType">
+          <option value="annual">Annual Leave</option>
+          <option value="sick">Sick Leave</option>
+          <option value="emergency">Emergency Leave</option>
+          <option value="personal">Personal Leave</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Start Date *</label><input type="date" class="form-control" id="lStart"></div>
+        <div class="form-group"><label>End Date *</label><input type="date" class="form-control" id="lEnd"></div>
+      </div>
+      <div class="form-group">
+        <label>Reason *</label>
+        <textarea class="form-control" id="lReason" rows="3" placeholder="Please explain the reason for leave…"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" id="submitBtn" onclick="submitLeave()">Submit Request</button>
+    </div>
+  </div>
+</div>
+
+<script src="../js/config.js"></script>
+<script src="../js/layout.js"></script>
+<script>
+initPage('teacher','teacher-leave.html','My Leave');
+
+async function loadLeave() {
+  try {
+    const res = await API.get('/leave/my');
+    const el  = document.getElementById('leaveList');
+    if (!res.data.length) { el.innerHTML='<div class="empty-state"><div class="icon">🏖</div><p>No leave requests yet</p></div>'; return; }
+    el.innerHTML = `<div class="table-wrap"><table>
+      <thead><tr><th>Type</th><th>From</th><th>To</th><th>Days</th><th>Status</th><th>Review Notes</th></tr></thead>
+      <tbody>${res.data.map(r=>`
+        <tr>
+          <td style="text-transform:capitalize">${r.leave_type}</td>
+          <td>${UI.formatDate(r.start_date)}</td>
+          <td>${UI.formatDate(r.end_date)}</td>
+          <td>${Math.ceil((new Date(r.end_date)-new Date(r.start_date))/(1000*60*60*24))+1}</td>
+          <td>${UI.statusBadge(r.status)}</td>
+          <td class="text-muted">${r.review_notes||'—'}</td>
+        </tr>`).join('')}
+      </tbody></table></div>`;
+  } catch(e) { UI.toast('Failed to load','error'); }
+}
+
+function openModal() {
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('lStart').value = today;
+  document.getElementById('lEnd').value   = today;
+  document.getElementById('modal').classList.add('open');
+}
+function closeModal() { document.getElementById('modal').classList.remove('open'); }
+
+async function submitLeave() {
+  const btn = document.getElementById('submitBtn');
+  const body = {
+    leaveType:  document.getElementById('lType').value,
+    startDate:  document.getElementById('lStart').value,
+    endDate:    document.getElementById('lEnd').value,
+    reason:     document.getElementById('lReason').value.trim(),
+  };
+  if (!body.reason) { UI.toast('Reason is required','error'); return; }
+  UI.loading(btn, true);
+  try {
+    await API.post('/leave/request', body);
+    UI.toast('Leave request submitted','success');
+    closeModal(); loadLeave();
+  } catch(e) { UI.toast(e.message,'error'); }
+  finally { UI.loading(btn, false); }
+}
+
+loadLeave();
+</script>
+</body>
+</html>

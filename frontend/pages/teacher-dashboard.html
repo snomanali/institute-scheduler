@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Dashboard — Teacher</title>
+<link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <div class="topbar">
+      <span class="page-title" id="pageTitle">My Dashboard</span>
+      <div class="topbar-right">
+        <span id="teacherGreet" class="text-muted"></span>
+      </div>
+    </div>
+    <div class="page">
+
+      <!-- KPIs -->
+      <div class="kpi-row">
+        <div class="kpi-card accent"><div class="num" id="k1">—</div><div class="label">Classes Today</div></div>
+        <div class="kpi-card success"><div class="num" id="k2">—</div><div class="label">This Week</div></div>
+        <div class="kpi-card warning"><div class="num" id="k3">—</div><div class="label">Pending Attendance</div></div>
+      </div>
+
+      <div class="grid-2">
+        <!-- Today's classes -->
+        <div class="card">
+          <div class="card-header">
+            <h3>Today's Classes</h3>
+            <span class="text-muted" style="font-size:0.78rem" id="todayStr"></span>
+          </div>
+          <div class="card-body" id="todayList"><p class="text-muted">Loading…</p></div>
+        </div>
+
+        <!-- Pending attendance -->
+        <div class="card">
+          <div class="card-header">
+            <h3>⚠ Pending Attendance</h3>
+          </div>
+          <div class="card-body" id="pendingList"><p class="text-muted">Loading…</p></div>
+        </div>
+      </div>
+
+      <!-- This week -->
+      <div class="card mt-3">
+        <div class="card-header"><h3>This Week's Schedule</h3></div>
+        <div class="card-body" id="weekList"><p class="text-muted">Loading…</p></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="../js/config.js"></script>
+<script src="../js/layout.js"></script>
+<script>
+initPage('teacher','teacher-dashboard.html','My Dashboard');
+const user = Auth.user();
+document.getElementById('teacherGreet').textContent = `Welcome, ${user?.fullName?.split(' ')[0] || 'Teacher'}`;
+document.getElementById('todayStr').textContent = new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
+
+async function loadDashboard() {
+  try {
+    const [today, week, pending] = await Promise.all([
+      API.get('/classes/my/today'),
+      API.get('/classes/my/week'),
+      API.get('/attendance/my/pending'),
+    ]);
+
+    document.getElementById('k1').textContent = today.count || 0;
+    document.getElementById('k2').textContent = week.count  || 0;
+    document.getElementById('k3').textContent = pending.data?.length || 0;
+
+    // Today's classes
+    const tl = document.getElementById('todayList');
+    tl.innerHTML = today.data?.length ? today.data.map(c => `
+      <div class="class-card ${c.status}">
+        <div class="class-time">${UI.formatTime(c.start_time)} – ${UI.formatTime(c.end_time)}</div>
+        <div class="class-title">${c.subject?.name||'—'} ${c.course?'· '+c.course.name:''}</div>
+        <div class="class-meta">👥 ${c.student_count||0} students · ${UI.platformIcon(c.platform)} ${c.platform?.replace('_',' ')||''}</div>
+        <div class="class-actions">
+          ${c.meeting_link ? `<a href="${c.meeting_link}" target="_blank" class="btn btn-sm btn-primary">Join Class</a>` : ''}
+          ${c.status!=='completed'?`<a href="teacher-attendance.html?classId=${c.id}" class="btn btn-sm btn-outline">Mark Attendance</a>`:''}
+          ${UI.statusBadge(c.status)}
+        </div>
+      </div>`).join('')
+      : '<div class="empty-state"><div class="icon">🎉</div><p>No classes today</p></div>';
+
+    // Pending attendance
+    const pl = document.getElementById('pendingList');
+    pl.innerHTML = pending.data?.length ? pending.data.map(c => `
+      <div class="class-card" style="border-left-color:var(--amber)">
+        <div class="class-time">${UI.formatDate(c.scheduled_date)} · ${UI.formatTime(c.start_time)}</div>
+        <div class="class-title">${c.subject_name}</div>
+        <div class="class-meta">👥 ${c.student_count} students · ${c.marked_count} marked</div>
+        <div class="class-actions">
+          <a href="teacher-attendance.html?classId=${c.id}" class="btn btn-sm btn-primary">Submit Attendance</a>
+        </div>
+      </div>`).join('')
+      : '<div class="empty-state"><div class="icon">✅</div><p>All attendance submitted</p></div>';
+
+    // Week schedule
+    const wl = document.getElementById('weekList');
+    wl.innerHTML = week.data?.length ? `<div class="table-wrap"><table>
+      <thead><tr><th>Date</th><th>Time</th><th>Subject</th><th>Course</th><th>Students</th><th>Platform</th><th>Status</th><th></th></tr></thead>
+      <tbody>${week.data.map(c=>`
+        <tr>
+          <td>${UI.formatDate(c.scheduled_date)}</td>
+          <td>${UI.formatTime(c.start_time)}–${UI.formatTime(c.end_time)}</td>
+          <td><strong>${c.subject?.name||'—'}</strong></td>
+          <td>${c.course?.name||'—'}</td>
+          <td>${c.student_count||0}</td>
+          <td>${UI.platformIcon(c.platform)} ${c.platform?.replace('_',' ')||''}</td>
+          <td>${UI.statusBadge(c.status)}</td>
+          <td>${c.meeting_link?`<a href="${c.meeting_link}" target="_blank" class="btn btn-sm btn-outline">Join</a>`:''}</td>
+        </tr>`).join('')}
+      </tbody></table></div>`
+      : '<div class="empty-state"><div class="icon">📅</div><p>No classes this week</p></div>';
+
+  } catch(e) { console.error(e); UI.toast('Failed to load dashboard','error'); }
+}
+
+loadDashboard();
+</script>
+</body>
+</html>

@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Reports — Admin</title>
+<link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <div class="topbar"><span class="page-title" id="pageTitle">Reports</span></div>
+    <div class="page">
+
+      <!-- Date filters -->
+      <div class="card mb-2">
+        <div class="card-body" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+          <div class="form-group" style="margin:0">
+            <label>From *</label>
+            <input type="date" class="form-control" id="rFrom">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label>To *</label>
+            <input type="date" class="form-control" id="rTo">
+          </div>
+          <div class="form-group" style="margin:0;flex:1;min-width:160px">
+            <label>Filter Teacher</label>
+            <select class="form-control" id="rTeacher"><option value="">All Teachers</option></select>
+          </div>
+          <div class="form-group" style="margin:0;flex:1;min-width:160px">
+            <label>Filter Course</label>
+            <select class="form-control" id="rCourse"><option value="">All Courses</option></select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Report cards -->
+      <div class="grid-2">
+        ${[
+          { id:'teacher-workload', icon:'👩‍🏫', title:'Teacher Workload', desc:'Hours taught, classes completed, cancelled per teacher' },
+          { id:'attendance',       icon:'✅',   title:'Student Attendance', desc:'Present, late, absent breakdown per student' },
+          { id:'leave',            icon:'🏖',   title:'Leave Report', desc:'All leave requests, days taken, approved/rejected' },
+          { id:'utilisation',      icon:'📊',   title:'Schedule Utilisation', desc:'Slot usage efficiency, completion rates by day' },
+          { id:'course-progress',  icon:'📚',   title:'Course Progress', desc:'Sessions completed vs planned per course' },
+        ].map(r => `
+          <div class="card" id="card-${r.id}">
+            <div class="card-header">
+              <h3>${r.icon} ${r.title}</h3>
+            </div>
+            <div class="card-body">
+              <p class="text-muted mb-2">${r.desc}</p>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button class="btn btn-outline btn-sm" onclick="runReport('${r.id}','json')">👁 Preview</button>
+                <button class="btn btn-primary btn-sm" onclick="runReport('${r.id}','pdf')">📄 PDF</button>
+                <button class="btn btn-success btn-sm" onclick="runReport('${r.id}','xlsx')">📊 Excel</button>
+                <button class="btn btn-ghost btn-sm" onclick="runReport('${r.id}','csv')">📋 CSV</button>
+              </div>
+              <div id="preview-${r.id}" style="margin-top:14px;display:none"></div>
+            </div>
+          </div>`).join('')}
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="../js/config.js"></script>
+<script src="../js/layout.js"></script>
+<script>
+initPage('admin','admin-reports.html','Reports');
+
+// Set default date range (last 30 days)
+const now = new Date();
+document.getElementById('rTo').value   = now.toISOString().split('T')[0];
+const monthAgo = new Date(now); monthAgo.setDate(monthAgo.getDate()-30);
+document.getElementById('rFrom').value = monthAgo.toISOString().split('T')[0];
+
+async function loadFilters() {
+  const [teachers, courses] = await Promise.all([API.get('/teachers'), API.get('/courses')]);
+  document.getElementById('rTeacher').innerHTML = '<option value="">All Teachers</option>' +
+    teachers.data.map(t=>`<option value="${t.id}">${t.full_name}</option>`).join('');
+  document.getElementById('rCourse').innerHTML = '<option value="">All Courses</option>' +
+    courses.data.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+}
+
+async function runReport(type, format) {
+  const from      = document.getElementById('rFrom').value;
+  const to        = document.getElementById('rTo').value;
+  const teacherId = document.getElementById('rTeacher').value;
+  const courseId  = document.getElementById('rCourse').value;
+
+  if (!from || !to) { UI.toast('Please select date range','error'); return; }
+
+  let url = `/reports/${type}?from=${from}&to=${to}&format=${format}`;
+  if (teacherId) url += `&teacher_id=${teacherId}`;
+  if (courseId)  url += `&course_id=${courseId}`;
+
+  if (format === 'json') {
+    try {
+      const res  = await API.get(url);
+      const prev = document.getElementById(`preview-${type}`);
+      prev.style.display = 'block';
+      const d = res.data;
+      const rows = d.summary || d.daily || d.records || d;
+      if (!rows || !rows.length) { prev.innerHTML = '<p class="text-muted">No data for this period</p>'; return; }
+      const keys = Object.keys(rows[0]).filter(k => !['teacher_id','student_id'].includes(k)).slice(0,6);
+      prev.innerHTML = `<div class="table-wrap" style="max-height:260px;overflow-y:auto"><table>
+        <thead><tr>${keys.map(k=>`<th>${k.replace(/_/g,' ')}</th>`).join('')}</tr></thead>
+        <tbody>${rows.slice(0,15).map(r=>`<tr>${keys.map(k=>`<td>${r[k]??'—'}</td>`).join('')}</tr>`).join('')}</tbody>
+      </table></div>
+      <p class="text-muted mt-1" style="font-size:0.75rem">Showing first 15 rows. Download for full report.</p>`;
+    } catch(e) { UI.toast(e.message||'Failed to load report','error'); }
+    return;
+  }
+
+  // File download
+  const names = { 'teacher-workload':'teacher-workload','attendance':'attendance','leave':'leave','utilisation':'utilisation','course-progress':'course-progress' };
+  const exts  = { pdf:'pdf', xlsx:'xlsx', csv:'csv' };
+  try {
+    await API.download(url, `${names[type]}-${from}-${to}.${exts[format]}`);
+    UI.toast('Download started','success');
+  } catch(e) { UI.toast('Download failed','error'); }
+}
+
+loadFilters();
+</script>
+</body>
+</html>
